@@ -84,25 +84,25 @@ function populate(s::Stock,d::DataFrame,f::Char)
 end
 
 #Takes 2-column DataFrames only; one for Date, and the other for Asset Prices
-function calculateReturns(base_data::DataFrame)
+function calculateReturns(base_data::DataFrame;ran::Int64=1)
     sort!(base_data)#sort rows by oldest to newest
     temp=similar(base_data)
-    for i in propertynames(temp)
-        if i != :Date
-            rename!(temp,i=>:Returns)
-        end
+    if propertynames(temp)[2] != :Returns
+        rename!(temp,propertynames(temp)[2]=>:Returns)
     end
 
     temp[1,:Returns]=0
-    temp[1,:Date]=base_data[1,:Date]
-    for i in 2:size(base_data,1)
-        temp[i,:Returns] = base_data[i,2]/base_data[i-1,2] - 1
-        temp[i,:Date]=base_data[i,:Date]
+    temp.Date=base_data.Date
+    
+    for i in (ran+1):size(base_data,1)
+        temp[i,:Returns] = base_data[i,2]/base_data[i-ran,2] - 1
     end
+
+    temp.Returns=checkUndefined(temp.Returns)
     return temp
 end
 
-function calculateReturns!(base_data::DataFrame)
+function calculateReturns!(base_data::DataFrame;ran::Int64=1)
     sort!(base_data)#sort rows by oldest to newest
     temp=similar(base_data)
     for i in propertynames(temp)
@@ -112,13 +112,15 @@ function calculateReturns!(base_data::DataFrame)
         end
     end
     temp[1,:Returns]=0
-    temp[1,:Date]=base_data[1,:Date]
-    for i in 2:size(base_data,1)
-        temp[i,:Returns] = base_data[i,2]/base_data[i-1,2] - 1
-        temp[i,:Date]=base_data[i,:Date]
+    temp.Date=base_data.Date
+    
+    for i in (ran+1):size(base_data,1)
+        temp[i,:Returns] = base_data[i,2]/base_data[i-ran,2] - 1
     end
+    #temp = calculateReturns(base_data,ran=ran)
 
     base_data = temp
+
 end
 
 #Takes Stock and 2-column DataFrame arguments
@@ -253,6 +255,18 @@ function betaCoefficient(data::DataFrame)
     normalized_df=dropmissing(innerjoin(sp,asset,on=:Date,makeunique=true))
 
     return cov(normalized_df[:,2],normalized_df[:,3])/cov(normalized_df[:,2])
+end
+
+#check if we have undefined values and replace with missing
+function checkUndefined(arr)
+    s=Base.length(arr)
+    for i in 1:s
+        #print(i,":",isassigned(arr,i))
+        if !isassigned(arr,i)
+            arr[i]=missing
+        end
+    end
+    return arr
 end
 
 
